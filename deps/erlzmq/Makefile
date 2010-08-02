@@ -1,4 +1,4 @@
-GIT_UPSTREAM=git://github.com/zeromq/erlzmq.git
+GIT_UPSTREAM=http://github.com/zeromq/erlzmq.git
 
 ZMQ_PATH=/usr/local
 
