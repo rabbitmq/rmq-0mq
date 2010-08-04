@@ -64,7 +64,7 @@ ensure_exchange(Name, Type, Conn) ->
 create_in_socket([]) ->
     no_socket;
 create_in_socket(Specs) when is_list(Specs) ->
-    {ok, In} = zmq:socket(sub, [{active, true}]),
+    {ok, In} = zmq:socket(sub, [{active, true}, {subscribe, <<"">>}]),
     bindings_and_connections(In, Specs),
     In.
 
@@ -105,12 +105,15 @@ init([{pubsub, InSpec, OutSpec, Options}]) ->
     Connection = amqp_connection:start_direct_link(),
     case ensure_exchange(Exchange, <<"fanout">>, Connection) of
         {error, _, Spec} ->
+            io:format("Error declaring exchange ~p~n", [Spec]),
             throw({cannot_declare_exchange, Spec});
         ok ->
+            io:format("Exchange OK ~p~n", [Exchange]),
             InSock = create_in_socket(InSpec),
             OutSock = create_out_socket(OutSpec),
             Channel = amqp_connection:open_channel(Connection),
             Queue = create_bind_private_queue(Exchange, <<"">>, Channel),
+            io:format("Using queue ~p~n", [Queue]),
             gen_server:cast(self(), init),
             {ok, #state{ connection = Connection,
                          channel = Channel,
@@ -129,22 +132,24 @@ handle_cast(init, State = #state{ channel = Channel,
     {noreply, State}.
 
 handle_call(Request, From, State) ->
-    %% FIXME blow up instead.
+    io:format("Unexpected request ~n", [Request]),
     {reply, ok, State}.
 
 handle_info(#'basic.consume_ok'{}, State) ->
+    io:format("(consume ok recvd)~n", []),
     {noreply, State};
 handle_info({zmq, _FD, Data}, State = #state{ channel = Channel,
                                              exchange = Exchange }) ->
-    %% Publish to exchange!
+    io:format("ZeroMQ message recvd: ~p~n", [Data]),
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = Exchange }, 
     amqp_channel:cast(Channel, Pub, Msg),
-    State;
+    {noreply, State};
 handle_info({#'basic.deliver'{}, #amqp_msg{ payload = Payload }},
             State = #state{ out_sock = OutSock }) ->
+    io:format("AMQP message recvd: ~p~n", [Payload]),
     zmq:send(OutSock, Payload),
-    State.
+    {noreply, State}.
 
 terminate(_Reason,
           State = #state{ connection = Connection,
