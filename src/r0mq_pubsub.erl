@@ -36,7 +36,7 @@ start_link(Spec) ->
 %% 'missing'.
 get_option(Key, Options) ->
     case lists:keyfind(Key, 1, Options) of
-        false              -> missing; 
+        false              -> missing;
         {Key, OptionValue} -> OptionValue
     end.
 
@@ -105,15 +105,15 @@ init([{pubsub, InSpec, OutSpec, Options}]) ->
     Connection = amqp_connection:start_direct_link(),
     case ensure_exchange(Exchange, <<"fanout">>, Connection) of
         {error, _, Spec} ->
-            io:format("Error declaring exchange ~p~n", [Spec]),
+            %io:format("Error declaring exchange ~p~n", [Spec]),
             throw({cannot_declare_exchange, Spec});
         ok ->
-            io:format("Exchange OK ~p~n", [Exchange]),
+            %io:format("Exchange OK ~p~n", [Exchange]),
             InSock = create_in_socket(InSpec),
             OutSock = create_out_socket(OutSpec),
             Channel = amqp_connection:open_channel(Connection),
             Queue = create_bind_private_queue(Exchange, <<"">>, Channel),
-            io:format("Using queue ~p~n", [Queue]),
+            %io:format("Using queue ~p~n", [Queue]),
             gen_server:cast(self(), init),
             {ok, #state{ connection = Connection,
                          channel = Channel,
@@ -132,22 +132,22 @@ handle_cast(init, State = #state{ channel = Channel,
     {noreply, State}.
 
 handle_call(Request, From, State) ->
-    io:format("Unexpected request ~n", [Request]),
+    %% io:format("Unexpected request ~n", [Request]),
     {reply, ok, State}.
 
 handle_info(#'basic.consume_ok'{}, State) ->
-    io:format("(consume ok recvd)~n", []),
+    %% io:format("(consume ok recvd)~n", []),
     {noreply, State};
 handle_info({zmq, _FD, Data}, State = #state{ channel = Channel,
                                              exchange = Exchange }) ->
-    io:format("ZeroMQ message recvd: ~p~n", [Data]),
+    %io:format("ZeroMQ message recvd: ~p~n", [Data]),
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = Exchange }, 
     amqp_channel:cast(Channel, Pub, Msg),
     {noreply, State};
 handle_info({#'basic.deliver'{}, #amqp_msg{ payload = Payload }},
             State = #state{ out_sock = OutSock }) ->
-    io:format("AMQP message recvd: ~p~n", [Payload]),
+    %% io:format("AMQP message recvd: ~p~n", [Payload]),
     zmq:send(OutSock, Payload),
     {noreply, State}.
 
