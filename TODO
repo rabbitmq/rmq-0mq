@@ -1,0 +1,19 @@
+# Backlog
+
+ * Supervision hierarchy -- zmq:start_link needs to be done before
+   anything else, but it's a worker like everything else. Maybe do by
+   having the app start each service, rather than the sup.
+ * Refactor service gen_servers
+ * Echo the config to logs/console
+ * Pipeline and request/reply
+ * Revisit reqrep design -- ought to be able to do it without
+   alternate exchnage (and that's going to cause problems anyway,
+   since it can't be applied to an existing exchange, e.g., the
+   default exchange).
+
+# Features
+
+ * Starting (and maybe stopping) services dynamically.
+ * Validate configurations, perhaps check for socket clashes.
+ * Mgmt interface?
+ * Use event mechanism
