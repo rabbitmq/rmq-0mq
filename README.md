@@ -55,4 +55,4 @@ the exchange to which messages arriving at the inbound socket are
 published, and from which published messages are send over the
 outbound socket.
 
-(NB: only pubsub is implemented so far).
+(NB: only pubsub and pipeline are implemented so far).
