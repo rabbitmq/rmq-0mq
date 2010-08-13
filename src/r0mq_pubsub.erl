@@ -31,10 +31,10 @@ init(Options, Connection, ConsumeChannel) ->
         {error, _, Spec} ->
             %io:format("Error declaring exchange ~p~n", [Spec]),
             throw({cannot_declare_exchange, Exchange});
-        ok ->
+        {ok, Exchange} ->
             %io:format("Exchange OK ~p~n", [Exchange]),
-            Queue = r0mq_util:create_bind_private_queue(
-                      Exchange, <<"">>, ConsumeChannel),
+            {ok, Queue} = r0mq_util:create_bind_private_queue(
+                            Exchange, <<"">>, ConsumeChannel),
             %io:format("Using queue ~p~n", [Queue]),
             {ok, #state{exchange = Exchange,
                          queue = Queue }}

@@ -3,6 +3,7 @@
 -export([get_option/2, private_name/0]).
 
 -export([ensure_exchange/3,
+         ensure_shared_queue/4,
          create_bind_private_queue/3]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
@@ -20,8 +21,6 @@ get_option(Key, Options) ->
         {Key, OptionValue} -> OptionValue
     end.
 
-
-
 %% Make sure an exchange is present.  We take a connection as a
 %% parameter, because we'll use a throwaway channel.
 %% For the minute, we presume that exchanges will be durable.
@@ -36,14 +35,33 @@ ensure_exchange(Name, Type, Conn) ->
                  _ ->
                      {error, wrong_type, ExchangeDecl}
              end,
-    amqp_channel:close(Channel).
+    amqp_channel:close(Channel),
+    Result.
+
+%% Make sure a queue is present. We use a sacrificial channel.
+%% Presumes that the queue is durable.
+ensure_shared_queue(Queue, Exchange, BindingKey, Conn) ->
+    QueueDecl = #'queue.declare'{ queue = Queue,
+                                  durable = true },
+    Channel = amqp_connection:open_channel(Conn),
+    #'queue.declare_ok'{ queue = Queue } =
+        amqp_channel:call(Channel, QueueDecl),
+    bind_queue(Queue, Exchange, BindingKey, Channel),
+    amqp_channel:close(Channel),
+    {ok, Queue}.
 
 create_bind_private_queue(Exchange, BindingKey, Channel) ->
     QueueDecl = #'queue.declare'{ exclusive = true },
     #'queue.declare_ok'{ queue = Queue } =
         amqp_channel:call(Channel, QueueDecl),
+    bind_queue(Queue, Exchange, BindingKey, Channel),
+    {ok, Queue}.
+
+bind_queue(Queue, Exchange, BindingKey, Channel) ->
     Bind = #'queue.bind'{ exchange = Exchange,
                           queue = Queue,
-                          routing_key = BindingKey },
-    #'queue.bind_ok'{} = amqp_channel:call(Channel, Bind),
-    Queue.
+                          routing_key = case BindingKey of
+                                           queue -> Queue;
+                                           Key   -> Key
+                                        end},
+    #'queue.bind_ok'{} = amqp_channel:call(Channel, Bind).
