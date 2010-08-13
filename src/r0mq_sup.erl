@@ -42,7 +42,8 @@ child_specs(Services) ->
 
 child_spec(S = {pubsub, Ins, Outs, Options}) ->
     {ok,
-     {erlang:md5(term_to_binary(S)),{r0mq_pubsub, start_link, [S]},
+     {erlang:md5(term_to_binary(S)),{r0mq_service, start_link,
+                                     [{r0mq_pubsub, Ins, Outs, Options}]},
       transient,10,worker,[r0mq_pubsub]}};
 child_spec(S) ->
     {error, {invalid_service, S}}.
