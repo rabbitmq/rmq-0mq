@@ -6,7 +6,7 @@
 
 %% Callbacks
 -export([init/3, create_in_socket/0, create_out_socket/0,
-        start_listening/2, zmq_message/3, amqp_message/5]).
+        start_listening/2, zmq_message/4, amqp_message/5]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -28,7 +28,7 @@ init(Options, Connection, ConsumeChannel) ->
                    Name    -> Name
                end,
     case r0mq_util:ensure_exchange(Exchange, <<"fanout">>, Connection) of
-        {error, _, Spec} ->
+        {error, _, _Spec} ->
             %io:format("Error declaring exchange ~p~n", [Spec]),
             throw({cannot_declare_exchange, Exchange});
         {ok, Exchange} ->
@@ -47,7 +47,7 @@ start_listening(Channel, State = #state{queue = Queue}) ->
     amqp_channel:subscribe(Channel, Consume, self()),
     {ok, State}.
 
-zmq_message(Data, Channel, State = #state{ exchange = Exchange }) ->
+zmq_message(Data, in, Channel, State = #state{ exchange = Exchange }) ->
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = Exchange },
     amqp_channel:cast(Channel, Pub, Msg),

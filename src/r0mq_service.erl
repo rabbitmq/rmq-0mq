@@ -69,12 +69,18 @@ handle_cast(start_listening, State = #state { service_state = ServiceState,
 handle_info(#'basic.consume_ok'{}, State) ->
     io:format("(consume ok recvd)~n", []),
     {noreply, State};
-handle_info({zmq, _FD, Data}, State = #state{
-                                service_module = Module,
-                                service_state = ServiceState,
-                                channel = Channel}) ->
-    io:format("ZeroMQ message recvd: ~p~n", [Data]),
-    {ok, ServiceState1} = Module:zmq_message(Data, Channel, ServiceState),
+handle_info({zmq, FD, Data}, State = #state{
+                               service_module = Module,
+                               service_state = ServiceState,
+                               in_sock = {_, InFD},
+                               out_sock = {_, OutFD},
+                               channel = Channel}) ->
+    InOrOut = case FD of
+                  InFD  -> in;
+                  OutFD -> out
+              end,
+    io:format("ZeroMQ message recvd: ~p ~p~n", [InOrOut, Data]),
+    {ok, ServiceState1} = Module:zmq_message(Data, InOrOut, Channel, ServiceState),
     {noreply, State#state {service_state = ServiceState1}};
 
 handle_info({Env = #'basic.deliver'{}, Msg},
