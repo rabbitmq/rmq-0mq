@@ -44,7 +44,15 @@ Here is an example, given as a complete RabbitMQ config file:
         [{pubsub,
           [{bind, "tcp://127.0.0.1:5555"}],
           [{bind, "tcp://127.0.0.1:5556"}],
-          [{exchange, <<"amq.fanout">>}]}]}]}].
+          [{exchange, <<"amq.fanout">>}]},
+         {pipeline,
+          [{bind, "tcp://127.0.0.1:4444"}],
+          [{bind, "tcp://127.0.0.1:4445"}],
+          [{exchange, <<"pipeline">>}, {queue, <<"pipeline">>}]},
+         {reqrep,
+          [{bind, "tcp://127.0.0.1:7777"}],
+          [{bind, "tcp://127.0.0.1:7778"}],
+          [{req_queue, <<"requests">>}]}]}]}].
 
 The general pattern for the R0MQ section is
 
@@ -65,9 +73,7 @@ where
     BindOrConnect = bind
                   | connect
 
-and OptionKey will depend on the service type; in the example, it is
-the exchange to which messages arriving at the inbound socket are
-published, and from which published messages are send over the
+and OptionKey will depend on the service type; e.g., for pubsub,
+it is the exchange to which messages arriving at the inbound socket
+are published, and from which published messages are send over the
 outbound socket.
-
-(NB: only pubsub and pipeline are implemented so far).
