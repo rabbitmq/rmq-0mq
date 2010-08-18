@@ -86,10 +86,11 @@ handle_info({zmq, FD, Data}, State = #state{
 handle_info({Env = #'basic.deliver'{}, Msg},
             State = #state{ service_module = Module,
                             service_state = ServiceState,
+                            in_sock = In,
                             out_sock = Out,
                             channel = Channel}) ->
     io:format("AMQP message recvd: ~p~n", [Msg]),
-    {ok, ServiceState1} = Module:amqp_message(Env, Msg, Out, Channel, ServiceState),
+    {ok, ServiceState1} = Module:amqp_message(Env, Msg, In, Out, Channel, ServiceState),
     {noreply, State#state{service_state = ServiceState1}}.
 
 %% TODO termination protocol for service module

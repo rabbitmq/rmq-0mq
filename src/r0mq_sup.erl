@@ -50,5 +50,10 @@ child_spec(S = {pipeline, Ins, Outs, Options}) ->
      {erlang:md5(term_to_binary(S)),{r0mq_service, start_link,
                                      [{r0mq_pipeline, Ins, Outs, Options}]},
       transient,10,worker,[r0mq_service]}};
+child_spec(S = {reqrep, Ins, Outs, Options}) ->
+    {ok,
+     {erlang:md5(term_to_binary(S)),{r0mq_service, start_link,
+                                     [{r0mq_reqrep, Ins, Outs, Options}]},
+      transient,10,worker,[r0mq_service]}};
 child_spec(S) ->
     {error, {invalid_service, S}}.

@@ -15,7 +15,7 @@
 
 %% Callbacks
 -export([init/3, create_in_socket/0, create_out_socket/0,
-        start_listening/2, zmq_message/4, amqp_message/5]).
+        start_listening/2, zmq_message/4, amqp_message/6]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -67,6 +67,6 @@ zmq_message(Data, in, Channel, State = #state{ exchange = Exchange,
     amqp_channel:cast(Channel, Pub, Msg),
     {ok, State}.
 
-amqp_message(_Env, #amqp_msg{ payload = Payload }, Sock, _Channel, State) ->
-    zmq:send(Sock, Payload),
+amqp_message(_Env, #amqp_msg{ payload = Payload }, InSock, OutSock, _Channel, State) ->
+    zmq:send(OutSock, Payload),
     {ok, State}.
