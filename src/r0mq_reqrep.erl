@@ -128,9 +128,9 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
             io:format("Request received ~p", [Payload]),
             #'P_basic'{correlation_id = CorrelationId,
                        reply_to = ReplyTo} = Props,
-            zmq:send(OutSock, ReplyTo, 2), %% FIXME ZMQ_SNDMORE
-            zmq:send(OutSock, CorrelationId, 2),
-            zmq:send(OutSock, <<>>, 2),
+            zmq:send(OutSock, ReplyTo, [sndmore]),
+            zmq:send(OutSock, CorrelationId, [sndmore]),
+            zmq:send(OutSock, <<>>, [sndmore]),
             zmq:send(OutSock, Payload);
         RepTag ->
             %% A reply. Since it's for us, the correlation id will be
@@ -139,9 +139,9 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
             io:format("Reply received ~p", [Payload]),
             Path = decode_path(CorrelationId),
             lists:foreach(fun (PathElement) ->
-                                  zmq:send(InSock, PathElement, 2)
+                                  zmq:send(InSock, PathElement, [sndmore])
                           end, Path),
-            zmq:send(InSock, <<>>, 2),
+            zmq:send(InSock, <<>>, [sndmore]),
             zmq:send(InSock, Payload)
     end,
     {ok, State}.
