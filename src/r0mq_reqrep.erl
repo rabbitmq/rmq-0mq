@@ -104,15 +104,14 @@ zmq_message(Data, out, _Channel, State = #state{outgoing_state = path,
     {ok, State#state{outgoing_path = [Data | Path]}};
 zmq_message(Data, out, Channel, State = #state{outgoing_state = payload,
                                                outgoing_path = Path,
-                                               req_exchange = Exchange,
-                                               rep_queue = Queue}) ->
+                                               req_exchange = Exchange}) ->
     [ CorrelationId | [ReplyTo] ] = Path, %% NB reverse of what we send
     Msg = #amqp_msg{payload = Data,
                     props = #'P_basic'{
                       reply_to = ReplyTo,
                       correlation_id = CorrelationId}},
     Pub = #'basic.publish'{ exchange = Exchange,
-                            routing_key = Queue },
+                            routing_key = ReplyTo },
     amqp_channel:cast(Channel, Pub, Msg),
     {ok, State#state{outgoing_state = path, outgoing_path = []}}.
 
