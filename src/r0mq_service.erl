@@ -72,8 +72,8 @@ handle_info(#'basic.consume_ok'{}, State) ->
 handle_info({zmq, FD, Data}, State = #state{
                                service_module = Module,
                                service_state = ServiceState,
-                               in_sock = {_, InFD},
-                               out_sock = {_, OutFD},
+                               in_sock = InFD,
+                               out_sock = OutFD,
                                channel = Channel}) ->
     InOrOut = case FD of
                   InFD  -> in;
@@ -113,13 +113,13 @@ code_change(_, State, _) ->
 create_socket(_Module, _Function, []) ->
     no_socket;
 create_socket(Module, Function, Specs) ->
-    S = Module:Function(),
+    {_Port, S} = Module:Function(),
     bindings_and_connections(S, Specs),
     S.
 
 bindings_and_connections(Sock, Specs) ->
     lists:foreach(fun (Spec) ->
-                          bind_or_connect(Sock, Spec)
+                          ok = bind_or_connect(Sock, Spec)
                   end, Specs).
 
 bind_or_connect(Sock, {bind, Address}) ->
