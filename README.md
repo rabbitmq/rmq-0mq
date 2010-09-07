@@ -5,6 +5,11 @@ messages into RabbitMQ. Each ZeroMQ socket type is given an idiomatic
 encoding in the AMQP broker model, which means AMQP clients can
 interoperate.
 
+Among other things, this means you can use RabbitMQ as a device in a
+ZeroMQ network, gaining rabbity goodness such as persistence and
+monitoring; and, you can use RabbitMQ as a gateway from ZeroMQ to
+other protocols.
+
 # Building
 
 This plugin uses erlzmq, which requires ZeroMQ to be built and
@@ -28,9 +33,10 @@ rabbitmq-public-umbrella/, and this one is no exception.
     cd rmq-0mq
     make
 
-Either copy dist/*.ez into $rabbitmq-server/plugins/; or, copy
-dist/erlzmq.ez (the internal dependency) and symlink the working
-directory into $rabbitmq-server/plugins/.
+Either copy dist/*{erlzmq,amqp_client,r0mq}.ez into
+$rabbitmq-server/plugins/; or, copy dist/{erlzmq,amqp_client}.ez (the
+internal dependency) and symlink the working directory into
+$rabbitmq-server/plugins/.
 
 # Using
 
