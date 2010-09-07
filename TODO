@@ -2,15 +2,19 @@
 
  * Supervision hierarchy -- zmq:start_link needs to be done before
    anything else, but it's a worker like everything else. Maybe do by
-   having the app start each service, rather than the sup.
+   having the app start each service, rather than the sup. (on the
+   other hand, we probably want one-for-all wrt the zmq process)
  * Echo the config to logs/console
  * Deal with more than one path element (encode with length)
+ * Sort out how to use acks and passive mode to put the back-pressure
+   on sockets, rather than filling up process mailboxes
 
 # Features
 
  * Starting (and maybe stopping) services dynamically.
  * Validate configurations, perhaps check for socket clashes.
  * Mgmt interface?
+ * Ability to enumerate services
  * Use event mechanism for stats
 
 # Done
