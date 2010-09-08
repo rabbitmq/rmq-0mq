@@ -47,6 +47,14 @@ init([{Module, InSpec, OutSpec, Options}]) ->
     InSock = create_socket(Module, create_in_socket, InSpec),
     OutSock = create_socket(Module, create_out_socket, OutSpec),
     gen_server:cast(self(), start_listening),
+    rabbit_log:info(
+      "0MQ ~p service starting~n" ++
+      "  listening on:~n" ++
+      "    inbound  ~p~n" ++
+      "    outbound ~p~n" ++
+      "  options:~n" ++
+      "    ~p",
+      [Module, InSpec, OutSpec, Options]),
     {ok, #state{ connection = Connection,
                  channel = Channel,
                  service_module = Module,
@@ -67,7 +75,7 @@ handle_cast(start_listening, State = #state { service_state = ServiceState,
 
 %% This will get sent when a service subscribes us to a queue.
 handle_info(#'basic.consume_ok'{}, State) ->
-    io:format("(consume ok recvd)~n", []),
+    %%io:format("(consume ok recvd)~n", []),
     {noreply, State};
 handle_info({zmq, FD, Data}, State = #state{
                                service_module = Module,
@@ -79,7 +87,7 @@ handle_info({zmq, FD, Data}, State = #state{
                   InFD  -> in;
                   OutFD -> out
               end,
-    io:format("ZeroMQ message recvd: ~p ~p~n", [InOrOut, Data]),
+    %%io:format("ZeroMQ message recvd: ~p ~p~n", [InOrOut, Data]),
     {ok, ServiceState1} = Module:zmq_message(Data, InOrOut, Channel, ServiceState),
     {noreply, State#state {service_state = ServiceState1}};
 
@@ -89,7 +97,7 @@ handle_info({Env = #'basic.deliver'{}, Msg},
                             in_sock = In,
                             out_sock = Out,
                             channel = Channel}) ->
-    io:format("AMQP message recvd: ~p~n", [Msg]),
+    %%io:format("AMQP message recvd: ~p~n", [Msg]),
     {ok, ServiceState1} = Module:amqp_message(Env, Msg, In, Out, Channel, ServiceState),
     {noreply, State#state{service_state = ServiceState1}}.
 

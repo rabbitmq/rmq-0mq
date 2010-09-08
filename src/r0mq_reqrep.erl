@@ -7,7 +7,6 @@
 %%
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
-
 %% Callbacks
 -export([init/3, create_in_socket/0, create_out_socket/0,
         start_listening/2, zmq_message/4, amqp_message/6]).
@@ -76,8 +75,7 @@ start_listening(Channel, State = #state{req_queue = ReqQueue,
     {ok, State#state{ request_tag = ReqTag, reply_tag = RepTag }}.
 
 %% If we get a zero-length payload, it means we've got the path, and
-%% the next is the request payload. (FIXME: request payloads may be
-%% multipart as well)
+%% the next is the request payload.
 zmq_message(<<>>, in, _Channel, State = #state{incoming_state = path}) ->
     {ok, State#state{incoming_state = payload}};
 zmq_message(Data, in, _Channel, State = #state{incoming_state = path,
@@ -124,7 +122,7 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
     case Tag of
         ReqTag ->
             %% A request, either from an AMQP client, or us
-            io:format("Request received ~p", [Payload]),
+            %%io:format("Request received ~p", [Payload]),
             #'P_basic'{correlation_id = CorrelationId,
                        reply_to = ReplyTo} = Props,
             zmq:send(OutSock, ReplyTo, [sndmore]),
@@ -135,7 +133,7 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
             %% A reply. Since it's for us, the correlation id will be
             %% our encoded correlation id
             #'P_basic'{correlation_id = CorrelationId} = Props,
-            io:format("Reply received ~p", [Payload]),
+            %%io:format("Reply received ~p", [Payload]),
             Path = decode_path(CorrelationId),
             lists:foreach(fun (PathElement) ->
                                   zmq:send(InSock, PathElement, [sndmore])

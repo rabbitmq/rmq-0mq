@@ -11,7 +11,7 @@
 %% -- Interface --
 
 start_link(ServerDefs) ->
-    zmq:start_link(), % FIXME put in hierarchy
+    {ok, Pid} = zmq:start_link(), % FIXME put in hierarchy
     case child_specs(ServerDefs) of
         {ok, ChildSpecs} ->
             supervisor:start_link(?MODULE, [ChildSpecs]);
