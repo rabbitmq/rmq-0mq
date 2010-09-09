@@ -7,5 +7,4 @@ socket.connect("tcp://127.0.0.1:5560")
 
 while True:
     message = socket.recv()
-    print "processing request..."
-    socket.send("World")
+    socket.send("World!")

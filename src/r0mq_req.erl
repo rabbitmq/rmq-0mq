@@ -108,4 +108,3 @@ encode_path([Id]) ->
 
 decode_path(CorrId) ->
     [CorrId].
-

@@ -7,5 +7,5 @@ socket = context.socket(zmq.PUSH)
 socket.connect("tcp://127.0.0.1:5557")
 
 while True:
-    socket.send("Hello, world!")
+    socket.send("Work!")
     time.sleep (1)
