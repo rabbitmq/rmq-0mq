@@ -9,4 +9,3 @@ while True:
     message = socket.recv()
     print "processing request..."
     socket.send("World")
-    
