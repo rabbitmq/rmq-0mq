@@ -5,7 +5,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.QueueingConsumer;
 
-public class rep {
+public class req {
     public static void main(String[] args) {
         try {
 
@@ -22,18 +22,22 @@ public class rep {
             Channel channel = connection.createChannel();
 
             //  Establish the REQ/REP wiring.
-            channel.queueDeclare("HELLO_WORLD", true, false, false, null);
+            String queueName = channel.queueDeclare().getQueue();
             QueueingConsumer consumer = new QueueingConsumer(channel);
-            channel.basicConsume("HELLO_WORLD", true, consumer);
+            channel.basicConsume(queueName, true, consumer);
 
             for (;;) {
 
-                //  Get next request
-                QueueingConsumer.Delivery delivery = consumer.nextDelivery();
-                String replyTo = delivery.getProperties().getReplyTo();
+                //  Send the request
+                AMQP.BasicProperties properties = new AMQP.BasicProperties();
+                properties.setReplyTo(queueName);
+                channel.basicPublish(null, "HELLO_WORLD", properties,
+                    "Hello!".getBytes());
 
-                //  Send the reply
-                channel.basicPublish(null, replyTo, null, "World!".getBytes());
+                //  Get and print the reply
+                QueueingConsumer.Delivery delivery = consumer.nextDelivery();
+                String reply = delivery.getBody().toString();
+                System.out.println(reply);
             }
         } catch (Exception e) {
             System.err.println("Main thread caught exception: " + e);
