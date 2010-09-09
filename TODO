@@ -8,6 +8,8 @@
  * Deal with more than one path element (encode with length)
  * Sort out how to use acks and passive mode to put the back-pressure
    on sockets, rather than filling up process mailboxes
+ * Consider separating into req, rep, pub, sub, upstream, downstream
+   services.
 
 # Features
 
