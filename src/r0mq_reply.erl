@@ -68,7 +68,11 @@ zmq_message(Data, out, _Channel, State = #state{outgoing_state = path,
 zmq_message(Data, out, Channel, State = #state{outgoing_state = payload,
                                                outgoing_path = Path,
                                                req_exchange = Exchange}) ->
-    [ CorrelationId, ReplyTo ] = Path, %% NB reverse of what we send
+    [ ReplyTo | Rest ] = Path,
+    CorrelationId = case Rest of
+                        [] -> undefined;
+                        Id -> Id
+                    end,
     Msg = #amqp_msg{payload = Data,
                     props = #'P_basic'{
                       reply_to = ReplyTo,
@@ -85,11 +89,14 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
              _Channel,
              State = #state{request_tag = ReqTag}) ->
     %% A request, either from an AMQP client, or us
-    %%io:format("Request received ~p", [Payload]),
+    io:format("Request received ~p", [Payload]),
     #'P_basic'{correlation_id = CorrelationId,
                reply_to = ReplyTo} = Props,
+    case CorrelationId of
+        undefined -> no_send;
+        Id        -> zmq:send(OutSock, CorrelationId, [sndmore])
+    end,
     zmq:send(OutSock, ReplyTo, [sndmore]),
-    zmq:send(OutSock, CorrelationId, [sndmore]),
     zmq:send(OutSock, <<>>, [sndmore]),
     zmq:send(OutSock, Payload),
     {ok, State}.

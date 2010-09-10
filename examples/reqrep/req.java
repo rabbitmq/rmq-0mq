@@ -31,12 +31,12 @@ public class req {
                 //  Send the request
                 AMQP.BasicProperties properties = new AMQP.BasicProperties();
                 properties.setReplyTo(queueName);
-                channel.basicPublish(null, "HELLO_WORLD", properties,
+                channel.basicPublish("", "HELLO_WORLD", properties,
                     "Hello!".getBytes());
 
                 //  Get and print the reply
                 QueueingConsumer.Delivery delivery = consumer.nextDelivery();
-                String reply = delivery.getBody().toString();
+                String reply = new String(delivery.getBody());
                 System.out.println(reply);
             }
         } catch (Exception e) {
