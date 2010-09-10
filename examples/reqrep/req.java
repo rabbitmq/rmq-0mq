@@ -26,19 +26,19 @@ public class req {
             QueueingConsumer consumer = new QueueingConsumer(channel);
             channel.basicConsume(queueName, true, consumer);
 
-            for (;;) {
+            //  Send the request
+            AMQP.BasicProperties properties = new AMQP.BasicProperties();
+            properties.setReplyTo(queueName);
+            channel.basicPublish("", "REQREP", properties,
+                "Hello!".getBytes());
 
-                //  Send the request
-                AMQP.BasicProperties properties = new AMQP.BasicProperties();
-                properties.setReplyTo(queueName);
-                channel.basicPublish("", "HELLO_WORLD", properties,
-                    "Hello!".getBytes());
+            //  Get and print the reply
+            QueueingConsumer.Delivery delivery = consumer.nextDelivery();
+            String reply = new String(delivery.getBody());
+            System.out.println(reply);
 
-                //  Get and print the reply
-                QueueingConsumer.Delivery delivery = consumer.nextDelivery();
-                String reply = new String(delivery.getBody());
-                System.out.println(reply);
-            }
+            connection.close();
+
         } catch (Exception e) {
             System.err.println("Main thread caught exception: " + e);
             e.printStackTrace();

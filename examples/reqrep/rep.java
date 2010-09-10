@@ -22,15 +22,17 @@ public class rep {
             Channel channel = connection.createChannel();
 
             //  Establish the REQ/REP wiring.
-            channel.queueDeclare("HELLO_WORLD", true, false, false, null);
+            channel.queueDeclare("REQREP", true, false, false, null);
             QueueingConsumer consumer = new QueueingConsumer(channel);
-            channel.basicConsume("HELLO_WORLD", true, consumer);
+            channel.basicConsume("REQREP", true, consumer);
 
             for (;;) {
 
                 //  Get next request
                 QueueingConsumer.Delivery delivery = consumer.nextDelivery();
                 String replyTo = delivery.getProperties().getReplyTo();
+
+                System.err.println("processing request");
 
                 //  Send the reply
                 channel.basicPublish(null, replyTo, null, "World!".getBytes());
