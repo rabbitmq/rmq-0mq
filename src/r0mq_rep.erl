@@ -1,4 +1,4 @@
--module(r0mq_reply).
+-module(r0mq_rep).
 
 %% The reply service. The socket is sent requests and
 %% accepts replies (i.e., it is connected to by rep
@@ -7,8 +7,8 @@
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
 %% Callbacks
--export([init/3, create_in_socket/0, create_out_socket/0,
-        start_listening/2, zmq_message/4, amqp_message/6]).
+-export([init/3, create_socket/0,
+        start_listening/2, zmq_message/3, amqp_message/5]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -28,10 +28,7 @@
 %% messages.  For receiving, we have a little state machine.  For
 %% sending, we just do it all in one go.
 
-create_in_socket() ->
-    no_socket.
-
-create_out_socket() ->
+create_socket() ->
     {ok, Out} = zmq:socket(xreq, [{active, true}]),
     Out.
 
@@ -39,7 +36,7 @@ init(Options, Connection, _ConsumeChannel) ->
     %% We MUST have a request queue name;
     %% there's no point in constructing a private queue, because
     %% no-one will be sending to it.
-    ReqQueueName = case r0mq_util:get_option(request_queue, Options) of
+    ReqQueueName = case r0mq_util:get_option(name, Options) of
                        missing -> throw({?MODULE,
                                          no_request_queue_supplied,
                                          Options});
@@ -60,18 +57,18 @@ start_listening(Channel, State = #state{req_queue = ReqQueue}) ->
         amqp_channel:subscribe(Channel, ConsumeReq, self()),
     {ok, State#state{ request_tag = ReqTag }}.
 
-zmq_message(<<>>, out, _Channel, State = #state{outgoing_state = path}) ->
+zmq_message(<<>>, _Channel, State = #state{outgoing_state = path}) ->
     {ok, State#state{outgoing_state = payload}};
-zmq_message(Data, out, _Channel, State = #state{outgoing_state = path,
-                                                outgoing_path = Path}) ->
+zmq_message(Data, _Channel, State = #state{outgoing_state = path,
+                                           outgoing_path = Path}) ->
     {ok, State#state{outgoing_path = [Data | Path]}};
-zmq_message(Data, out, Channel, State = #state{outgoing_state = payload,
-                                               outgoing_path = Path,
-                                               req_exchange = Exchange}) ->
+zmq_message(Data, Channel, State = #state{outgoing_state = payload,
+                                          outgoing_path = Path,
+                                          req_exchange = Exchange}) ->
     [ ReplyTo | Rest ] = Path,
     CorrelationId = case Rest of
-                        [] -> undefined;
-                        Id -> Id
+                        []   -> undefined;
+                        [Id] -> Id
                     end,
     Msg = #amqp_msg{payload = Data,
                     props = #'P_basic'{
@@ -84,19 +81,21 @@ zmq_message(Data, out, Channel, State = #state{outgoing_state = payload,
 
 amqp_message(#'basic.deliver'{consumer_tag = Tag},
              #amqp_msg{ payload = Payload, props = Props },
-             _InSock,
-             OutSock,
+             Sock,
              _Channel,
              State = #state{request_tag = ReqTag}) ->
     %% A request, either from an AMQP client, or us
-    io:format("Request received ~p", [Payload]),
+    io:format("Request received ~p (corr id ~p)~n", [Payload]),
     #'P_basic'{correlation_id = CorrelationId,
                reply_to = ReplyTo} = Props,
     case CorrelationId of
         undefined -> no_send;
-        Id        -> zmq:send(OutSock, CorrelationId, [sndmore])
+        Id        -> zmq:send(Sock, Id, [sndmore])
     end,
-    zmq:send(OutSock, ReplyTo, [sndmore]),
-    zmq:send(OutSock, <<>>, [sndmore]),
-    zmq:send(OutSock, Payload),
+    io:format("Sending: ~p~n", [ReplyTo]),
+    zmq:send(Sock, ReplyTo, [sndmore]),
+    io:format("Sending: <<>>~n", []),
+    zmq:send(Sock, <<>>, [sndmore]),
+    io:format("Sending: ~p~n", [Payload]),
+    zmq:send(Sock, Payload),
     {ok, State}.

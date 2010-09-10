@@ -11,8 +11,7 @@
                 channel,
                 service_module,
                 service_state,
-                in_sock,
-                out_sock}).
+                sock}).
 
 %% interface
 -export([start_link/1]).
@@ -40,27 +39,23 @@ start_link(ServiceArgs) ->
 
 %% -- Callbacks --
 
-init([{Module, InSpec, OutSpec, Options}]) ->
+init([{Module, SockSpec, Options}]) ->
     Connection = amqp_connection:start_direct_link(),
     Channel = amqp_connection:open_channel(Connection),
     {ok, ServiceState} = Module:init(Options, Connection, Channel),
-    InSock = create_socket(Module, create_in_socket, InSpec),
-    OutSock = create_socket(Module, create_out_socket, OutSpec),
+    Sock = create_socket(Module, create_socket, SockSpec),
     gen_server:cast(self(), start_listening),
     rabbit_log:info(
       "0MQ ~p service starting~n" ++
-      "  listening on:~n" ++
-      "    inbound  ~p~n" ++
-      "    outbound ~p~n" ++
+      "  listening on: ~p~n" ++
       "  options:~n" ++
       "    ~p",
-      [Module, InSpec, OutSpec, Options]),
+      [Module, SockSpec, Options]),
     {ok, #state{ connection = Connection,
                  channel = Channel,
                  service_module = Module,
                  service_state = ServiceState,
-                 in_sock = InSock,
-                 out_sock = OutSock }}.
+                 sock = Sock}}.
 
 %% -- Callbacks --
 
@@ -80,37 +75,29 @@ handle_info(#'basic.consume_ok'{}, State) ->
 handle_info({zmq, FD, Data}, State = #state{
                                service_module = Module,
                                service_state = ServiceState,
-                               in_sock = InFD,
-                               out_sock = OutFD,
+                               sock = FD,
                                channel = Channel}) ->
-    InOrOut = case FD of
-                  InFD  -> in;
-                  OutFD -> out
-              end,
-    io:format("ZeroMQ message recvd: ~p ~p~n", [InOrOut, Data]),
-    {ok, ServiceState1} = Module:zmq_message(Data, InOrOut, Channel, ServiceState),
+   io:format("ZeroMQ message recvd: ~p~n", [Data]),
+    {ok, ServiceState1} = Module:zmq_message(Data, Channel, ServiceState),
     {noreply, State#state {service_state = ServiceState1}};
 
 handle_info({Env = #'basic.deliver'{}, Msg},
             State = #state{ service_module = Module,
                             service_state = ServiceState,
-                            in_sock = In,
-                            out_sock = Out,
+                            sock = Sock,
                             channel = Channel}) ->
     io:format("AMQP message recvd: ~p~n", [Msg]),
-    {ok, ServiceState1} = Module:amqp_message(Env, Msg, In, Out, Channel, ServiceState),
+    {ok, ServiceState1} = Module:amqp_message(Env, Msg, Sock, Channel, ServiceState),
     {noreply, State#state{service_state = ServiceState1}}.
 
 %% TODO termination protocol for service module
 terminate(_Reason,
           #state{ connection = Connection,
                   channel = Channel,
-                  in_sock = In,
-                  out_sock = Out }) ->
+                  sock = Sock }) ->
     amqp_channel:close(Channel),
     amqp_connection:close(Connection),
-    close_socket(In),
-    close_socket(Out),
+    close_socket(Sock),
     ok.
 
 code_change(_, State, _) ->
@@ -118,8 +105,6 @@ code_change(_, State, _) ->
 
 %% -- Internal --
 
-create_socket(_Module, _Function, []) ->
-    no_socket;
 create_socket(Module, Function, Specs) ->
     {_Port, S} = Module:Function(),
     bindings_and_connections(S, Specs),
@@ -135,7 +120,5 @@ bind_or_connect(Sock, {bind, Address}) ->
 bind_or_connect(Sock, {connect, Address}) ->
     zmq:connect(Sock, Address).
 
-close_socket(no_socket) ->
-    ok;
 close_socket(Sock) ->
     zmq:close(Sock).

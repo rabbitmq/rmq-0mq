@@ -7,8 +7,8 @@
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
 %% Callbacks
--export([init/3, create_in_socket/0, create_out_socket/0,
-        start_listening/2, zmq_message/4, amqp_message/6]).
+-export([init/3, create_socket/0,
+        start_listening/2, zmq_message/3, amqp_message/5]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -29,18 +29,15 @@
 %% messages.  For receiving, we have a little state machine.  For
 %% sending, we just do it all in one go.
 
-create_in_socket() ->
+create_socket() ->
     {ok, In} = zmq:socket(xrep, [{active, true}]),
     In.
-
-create_out_socket() ->
-    no_socket.
 
 init(Options, Connection, ConsumeChannel) ->
     %% We MUST have a request queue name to use as a routing key;
     %% there's no point in constructing a private queue, because
     %% no-one will be listening to it.
-    ReqQueueName = case r0mq_util:get_option(request_queue, Options) of
+    ReqQueueName = case r0mq_util:get_option(name, Options) of
                        missing -> throw({?MODULE,
                                          no_request_queue_supplied,
                                          Options});
@@ -66,16 +63,16 @@ start_listening(Channel, State = #state{rep_queue = RepQueue}) ->
 
 %% If we get a zero-length payload, it means we've got the path, and
 %% the next is the request payload.
-zmq_message(<<>>, in, _Channel, State = #state{incoming_state = path}) ->
+zmq_message(<<>>, _Channel, State = #state{incoming_state = path}) ->
     {ok, State#state{incoming_state = payload}};
-zmq_message(Data, in, _Channel, State = #state{incoming_state = path,
-                                               incoming_path = Path}) ->
+zmq_message(Data, _Channel, State = #state{incoming_state = path,
+                                           incoming_path = Path}) ->
     {ok, State#state{incoming_path = [Data | Path]}};
-zmq_message(Data, in, Channel, State = #state{incoming_state = payload,
-                                              incoming_path = Path,
-                                              req_exchange = Exchange,
-                                              req_queue = Queue,
-                                              rep_queue = ReplyQueue}) ->
+zmq_message(Data, Channel, State = #state{incoming_state = payload,
+                                          incoming_path = Path,
+                                          req_exchange = Exchange,
+                                          req_queue = Queue,
+                                          rep_queue = ReplyQueue}) ->
     CorrelationId = encode_path(Path),
     Msg = #amqp_msg{payload = Data,
                     props = #'P_basic'{
@@ -88,18 +85,17 @@ zmq_message(Data, in, Channel, State = #state{incoming_state = payload,
 
 amqp_message(#'basic.deliver'{consumer_tag = Tag},
              #amqp_msg{ payload = Payload, props = Props },
-             InSock, _OutSock,
-             _Channel, State) ->
+             Sock, _Channel, State) ->
     %% A reply. Since it's for us, the correlation id will be
     %% our encoded correlation id
     #'P_basic'{correlation_id = CorrelationId} = Props,
-    %%io:format("Reply received ~p", [Payload]),
+    io:format("Reply received ~p corr id ~p", [Payload, CorrelationId]),
     Path = decode_path(CorrelationId),
     lists:foreach(fun (PathElement) ->
-                          zmq:send(InSock, PathElement, [sndmore])
+                          zmq:send(Sock, PathElement, [sndmore])
                   end, Path),
-    zmq:send(InSock, <<>>, [sndmore]),
-    zmq:send(InSock, Payload),
+    zmq:send(Sock, <<>>, [sndmore]),
+    zmq:send(Sock, Payload),
     {ok, State}.
 
 %% FIXME only deal with one for the minute
