@@ -106,5 +106,7 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
 encode_path([Id]) ->
     Id.
 
+decode_path(undefined) ->
+    [];
 decode_path(CorrId) ->
     [CorrId].

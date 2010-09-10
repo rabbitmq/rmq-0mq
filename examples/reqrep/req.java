@@ -36,7 +36,7 @@ public class req {
 
                 //  Get and print the reply
                 QueueingConsumer.Delivery delivery = consumer.nextDelivery();
-                String reply = delivery.getBody().toString();
+                String reply = new String(delivery.getBody());
                 System.out.println(reply);
             }
         } catch (Exception e) {
