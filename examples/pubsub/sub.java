@@ -21,10 +21,9 @@ public class sub {
             Connection connection = factory.newConnection();
             Channel channel = connection.createChannel();
 
-            //  Establish the PUB/SUB wiring.
-            channel.exchangeDeclare("HELLO_FEED", "fanout");
+            //  Establish the PUB/SUB wiring
             String queueName = channel.queueDeclare().getQueue();
-            channel.queueBind(queueName, "HELLO_FEED", null);
+            channel.queueBind(queueName, "PUBSUB", null);
             QueueingConsumer consumer = new QueueingConsumer(channel);
             channel.basicConsume(queueName, true, consumer);
 

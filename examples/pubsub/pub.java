@@ -21,13 +21,10 @@ public class pub {
             Connection connection = factory.newConnection();
             Channel channel = connection.createChannel();
 
-            //  Establish the PUB/SUB wiring.
-            channel.exchangeDeclare("HELLO_FEED", "fanout");
-
             for (;;) {
 
                 //  Send a message.
-                channel.basicPublish("HELLO_FEED", null, null,
+                channel.basicPublish("PUBSUB", null, null,
                     "Hello, World???".getBytes());
 
                 //  Sleep for one second.
