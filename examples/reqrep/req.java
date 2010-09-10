@@ -31,7 +31,7 @@ public class req {
                 //  Send the request
                 AMQP.BasicProperties properties = new AMQP.BasicProperties();
                 properties.setReplyTo(queueName);
-                channel.basicPublish(null, "HELLO_WORLD", properties,
+                channel.basicPublish("", "HELLO_WORLD", properties,
                     "Hello!".getBytes());
 
                 //  Get and print the reply
