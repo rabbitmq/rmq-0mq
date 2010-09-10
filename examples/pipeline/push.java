@@ -5,7 +5,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.QueueingConsumer;
 
-public class pub {
+public class push {
     public static void main(String[] args) {
         try {
 
@@ -24,7 +24,7 @@ public class pub {
             for (;;) {
 
                 //  Send a message.
-                channel.basicPublish("PUBSUB", null, null,
+                channel.basicPublish("PIPELINE", null, null,
                     "Hello, World???".getBytes());
 
                 //  Sleep for one second.

@@ -5,7 +5,7 @@ import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.QueueingConsumer;
 
-public class pub {
+public class pull {
     public static void main(String[] args) {
         try {
 
@@ -21,14 +21,17 @@ public class pub {
             Connection connection = factory.newConnection();
             Channel channel = connection.createChannel();
 
+            //  Establish the PUB/SUB wiring
+            String queueName = channel.queueDeclare().getQueue();
+            channel.queueBind(queueName, "PIPELINE", null);
+            QueueingConsumer consumer = new QueueingConsumer(channel);
+            channel.basicConsume(queueName, true, consumer);
+
             for (;;) {
 
-                //  Send a message.
-                channel.basicPublish("PUBSUB", null, null,
-                    "Hello, World???".getBytes());
-
-                //  Sleep for one second.
-                Thread.sleep (1000);
+                //  Get next request
+                String msg = consumer.nextDelivery().getBody().toString();
+                System.out.println (msg);
             }
         } catch (Exception e) {
             System.err.println("Main thread caught exception: " + e);
