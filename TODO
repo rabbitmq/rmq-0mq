@@ -4,12 +4,9 @@
    anything else, but it's a worker like everything else. Maybe do by
    having the app start each service, rather than the sup. (on the
    other hand, we probably want one-for-all wrt the zmq process)
- * Echo the config to logs/console
  * Deal with more than one path element (encode with length)
  * Sort out how to use acks and passive mode to put the back-pressure
    on sockets, rather than filling up process mailboxes
- * Consider separating into req, rep, pub, sub, upstream, downstream
-   services.
 
 # Features
 
@@ -18,6 +15,7 @@
  * Mgmt interface?
  * Ability to enumerate services
  * Use event mechanism for stats
+ * Arrange services by name (which is possibly gensymed), with sockets underneath
 
 # Done
 
@@ -27,3 +25,7 @@
    alternate exchange (and that's going to cause problems anyway,
    since it can't be applied to an existing exchange, e.g., the
    default exchange).
+ * Consider separating into req, rep, pub, sub, upstream, downstream
+   services.
+ * Echo the config to logs/console
+ * Change config language
