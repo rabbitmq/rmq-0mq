@@ -40,9 +40,9 @@ child_specs(Services) ->
             {errors, lists:map(fun (T) -> element(2, T) end, Errors)}
     end.
 
-child_spec({Type, Address, Amqp}) ->
-    child_spec({Type, Address, Amqp, []});
-child_spec(S = {Type, Address, AmqpName, Options}) ->
+child_spec({Rendezvous, Type, Address}) ->
+    child_spec({Rendezvous, Type, Address, []});
+child_spec(S = {Rendezvous, Type, Address, Options}) ->
     case module_for_type(Type) of
         no_such_type ->
             {error, {no_such_type, Type}, S};
@@ -55,7 +55,7 @@ child_spec(S = {Type, Address, AmqpName, Options}) ->
                      {erlang:md5(term_to_binary(S)),
                       {r0mq_service, start_link,
                        [{Module, Address1,
-                         [ {name, AmqpName} | Options]}]},
+                         [ {name, Rendezvous} | Options]}]},
                       transient,10,worker,[r0mq_service]}}
             end
     end.
