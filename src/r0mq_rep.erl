@@ -85,9 +85,9 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
              _Channel,
              State = #state{request_tag = ReqTag}) ->
     %% A request, either from an AMQP client, or us
-    io:format("Request received ~p (corr id ~p)~n", [Payload]),
     #'P_basic'{correlation_id = CorrelationId,
                reply_to = ReplyTo} = Props,
+    io:format("Request received ~p (corr id ~p)~n", [Payload, CorrelationId]),
     case CorrelationId of
         undefined -> no_send;
         Id        -> zmq:send(Sock, Id, [sndmore])
