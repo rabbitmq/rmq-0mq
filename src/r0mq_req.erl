@@ -89,20 +89,23 @@ amqp_message(#'basic.deliver'{consumer_tag = Tag},
     %% A reply. Since it's for us, the correlation id will be
     %% our encoded correlation id
     #'P_basic'{correlation_id = CorrelationId} = Props,
-    io:format("Reply received ~p corr id ~p", [Payload, CorrelationId]),
+    io:format("Reply received ~p (corr id ~p)~n", [Payload, CorrelationId]),
     Path = decode_path(CorrelationId),
     lists:foreach(fun (PathElement) ->
+                          io:format("Sending ~p~n", [PathElement]),
                           zmq:send(Sock, PathElement, [sndmore])
                   end, Path),
+    io:format("Sending <<>>~n", []),
     zmq:send(Sock, <<>>, [sndmore]),
+    io:format("Sending ~p~n", [Payload]),
     zmq:send(Sock, Payload),
     {ok, State}.
 
 %% FIXME only deal with one for the minute
 encode_path([Id]) ->
-    Id.
+    base64:encode(Id).
 
 decode_path(undefined) ->
     [];
 decode_path(CorrId) ->
-    [CorrId].
+    [base64:decode(CorrId)].

@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.QueueingConsumer;
+import com.rabbitmq.client.AMQP.BasicProperties;
 
 public class rep {
     public static void main(String[] args) {
@@ -31,11 +32,17 @@ public class rep {
                 //  Get next request
                 QueueingConsumer.Delivery delivery = consumer.nextDelivery();
                 String replyTo = delivery.getProperties().getReplyTo();
+                String correlationId = delivery.getProperties().getCorrelationId();
 
+                BasicProperties props =
+                  (BasicProperties) (delivery.getProperties().clone());
+                // We must set the correlation ID, because it is used
+                // by AMQP and 0MQ clients for correlating replies
+                props.setReplyTo(null);
                 System.err.println("processing request");
 
                 //  Send the reply
-                channel.basicPublish(null, replyTo, null, "World!".getBytes());
+                channel.basicPublish("", replyTo, props, "World!".getBytes());
             }
         } catch (Exception e) {
             System.err.println("Main thread caught exception: " + e);
