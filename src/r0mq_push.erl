@@ -5,11 +5,6 @@
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/pipeline
 
 %% Callbacks
-%-export([init/1, terminate/2, code_change/3,
-%         handle_call/3, handle_cast/2, handle_info/2]).
-
-
-%% Callbacks
 -export([init/3, create_socket/0,
         start_listening/2, zmq_message/3, amqp_message/5]).
 
@@ -20,7 +15,7 @@
 %% -- Callbacks --
 
 create_socket() ->
-    {ok, Out} = zmq:socket(downstream, [{active, true}]),
+    {ok, Out} = zmq:socket(upstream, [{active, true}]),
     Out.
 
 init(Options, Connection, ConsumeChannel) ->

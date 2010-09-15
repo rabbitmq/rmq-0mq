@@ -20,7 +20,7 @@
 %% -- Callbacks --
 
 create_socket() ->
-    {ok, In} = zmq:socket(upstream, [{active, true}]),
+    {ok, In} = zmq:socket(downstream, [{active, true}]),
     In.
 
 init(Options, Connection, ConsumeChannel) ->
