@@ -60,12 +60,12 @@ child_spec(S = {Rendezvous, Type, Address, Options}) ->
             end
     end.
 
-module_for_type(pub)  -> r0mq_pub;
-module_for_type(sub)  -> r0mq_sub;
-module_for_type(req)  -> r0mq_req;
-module_for_type(rep)  -> r0mq_rep;
-module_for_type(push) -> r0mq_push;
-module_for_type(pull) -> r0mq_pull;
+module_for_type(pub)  -> r0mq_pub_service;
+module_for_type(sub)  -> r0mq_sub_service;
+module_for_type(req)  -> r0mq_req_service;
+module_for_type(rep)  -> r0mq_rep_service;
+module_for_type(push) -> r0mq_push_service;
+module_for_type(pull) -> r0mq_pull_service;
 module_for_type(_)    -> no_such_type.
 
 full_address(Address) when is_list(Address) ->

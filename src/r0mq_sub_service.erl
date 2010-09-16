@@ -1,6 +1,6 @@
--module(r0mq_pub).
+-module(r0mq_sub_service).
 
-%% A pub service.
+%% A sub service.
 %%
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/pubsub
 

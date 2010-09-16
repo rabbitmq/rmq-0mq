@@ -1,6 +1,6 @@
--module(r0mq_pull).
+-module(r0mq_push_service).
 
-%% A pull (upstream) pipeline service.
+%% A pipeline push (downstream) service.
 %%
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/pipeline
 

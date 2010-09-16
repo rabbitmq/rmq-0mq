@@ -1,8 +1,6 @@
--module(r0mq_req).
+-module(r0mq_rep_service).
 
-%% The request service. The socket accepts
-%% requests and sends responses (i.e., it is connected to by req
-%% sockets.
+%% A reply service.
 %%
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
