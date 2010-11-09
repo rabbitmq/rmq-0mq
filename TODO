@@ -4,7 +4,7 @@
    anything else, but it's a worker like everything else. Maybe do by
    having the app start each service, rather than the sup. (on the
    other hand, we probably want one-for-all wrt the zmq process)
- * Deal with more than one path element (encode with length)
+ * Deal with more than one path element (encode with length?)
  * Sort out how to use acks and passive mode to put the back-pressure
    on sockets, rather than filling up process mailboxes
 

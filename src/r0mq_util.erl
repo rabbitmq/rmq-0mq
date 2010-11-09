@@ -25,7 +25,7 @@ get_option(Key, Options) ->
 %% parameter, because we'll use a throwaway channel.
 %% For the minute, we presume that exchanges will be durable.
 ensure_exchange(Name, Type, Conn) ->
-    Channel = amqp_connection:open_channel(Conn),
+    {ok, Channel} = amqp_connection:open_channel(Conn),
     ExchangeDecl = #'exchange.declare'{exchange = Name,
                                        type = Type,
                                        durable = true},
@@ -43,7 +43,7 @@ ensure_exchange(Name, Type, Conn) ->
 ensure_shared_queue(Queue, Exchange, BindingKey, Conn) ->
     QueueDecl = #'queue.declare'{ queue = Queue,
                                   durable = true },
-    Channel = amqp_connection:open_channel(Conn),
+    {ok, Channel} = amqp_connection:open_channel(Conn),
     #'queue.declare_ok'{ queue = Queue } =
         amqp_channel:call(Channel, QueueDecl),
     bind_queue(Queue, Exchange, BindingKey, Channel),
@@ -57,6 +57,8 @@ create_bind_private_queue(Exchange, BindingKey, Channel) ->
     bind_queue(Queue, Exchange, BindingKey, Channel),
     {ok, Queue}.
 
+bind_queue(_, <<"">>, _, _) ->
+    ok;
 bind_queue(Queue, Exchange, BindingKey, Channel) ->
     Bind = #'queue.bind'{ exchange = Exchange,
                           queue = Queue,

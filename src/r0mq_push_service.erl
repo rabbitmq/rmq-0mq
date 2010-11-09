@@ -10,8 +10,7 @@
 
 
 %% Callbacks
--export([init/3, create_socket/0,
-        start_listening/2, zmq_message/3, amqp_message/5]).
+-export([init/3, create_socket/0, start_listening/3]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
@@ -20,7 +19,7 @@
 %% -- Callbacks --
 
 create_socket() ->
-    {ok, In} = zmq:socket(downstream, [{active, true}]),
+    {ok, In} = zmq:socket(downstream, [{active, false}]),
     In.
 
 init(Options, Connection, ConsumeChannel) ->
@@ -30,19 +29,36 @@ init(Options, Connection, ConsumeChannel) ->
         QName when is_binary(QName) ->
             r0mq_util:ensure_shared_queue(
               QName, <<"">>, queue, Connection),
-            {ok, #state{queue = QName }}
+            {ok, #state{queue = QName}}
     end.
 
-start_listening(Channel, State = #state{queue = Queue}) ->
+start_listening(Channel, Sock, State = #state{queue = Queue}) ->
+    %% We use acking and basic.qos as a HWM for our process mailbox, so we don't
+    %% pile things up in the (unbounded) process mailbox.
+    amqp_channel:call(Channel, #'basic.qos'{prefetch_count = 100}),
     Consume = #'basic.consume'{ queue = Queue,
-                                no_ack = true,
-                                exclusive = true },
-    amqp_channel:subscribe(Channel, Consume, self()),
+                                no_ack = false,
+                                exclusive = false },
+    _Pid = spawn_link(
+             fun () ->
+                     amqp_channel:subscribe(Channel, Consume, self()),
+                     receive
+                         #'basic.consume_ok'{} -> ok
+                     end,
+                     loop(Channel, Sock, State)
+             end),
     {ok, State}.
 
-zmq_message(Data, Channel, State) ->
-    throw({?MODULE, unexpected_zmq_message, Data}).
+loop(Channel, Sock, State) ->
+    receive
+        {#'basic.deliver'{delivery_tag = Tag}, Msg} ->
+            {ok, State1} = send_message(Msg, Sock, State),
+            amqp_channel:cast(Channel,
+                              #'basic.ack'{delivery_tag = Tag, multiple = false}),
+            loop(Channel, Sock, State1)
+    end.
 
-amqp_message(_Env, #amqp_msg{ payload = Payload }, Sock, _Channel, State) ->
-    zmq:send(Sock, Payload),
-    {ok, State}.
+send_message(#amqp_msg{ payload = Payload }, Sock, State) ->
+    case zmq:send(Sock, Payload) of
+        ok -> {ok, State}
+    end.

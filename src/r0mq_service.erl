@@ -40,8 +40,8 @@ start_link(ServiceArgs) ->
 %% -- Callbacks --
 
 init([{Module, SockSpec, Options}]) ->
-    Connection = amqp_connection:start_direct_link(),
-    Channel = amqp_connection:open_channel(Connection),
+    {ok, Connection} = amqp_connection:start(direct),
+    {ok, Channel} = amqp_connection:open_channel(Connection),
     {ok, ServiceState} = Module:init(Options, Connection, Channel),
     Sock = create_socket(Module, create_socket, SockSpec),
     gen_server:cast(self(), start_listening),
@@ -64,8 +64,9 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(start_listening, State = #state { service_state = ServiceState,
                                               service_module = Module,
+                                              sock = Sock,
                                               channel = Channel }) ->
-    {ok, ServiceState1} = Module:start_listening(Channel, ServiceState),
+    {ok, ServiceState1} = Module:start_listening(Channel, Sock, ServiceState),
     {noreply, State#state { service_state = ServiceState1 } }.
 
 %% This will get sent when a service subscribes us to a queue.
@@ -106,19 +107,19 @@ code_change(_, State, _) ->
 %% -- Internal --
 
 create_socket(Module, Function, Specs) ->
-    {_Port, S} = Module:Function(),
-    bindings_and_connections(S, Specs),
-    S.
+    Sock = Module:Function(),
+    bindings_and_connections(Sock, Specs),
+    Sock.
 
 bindings_and_connections(Sock, Specs) ->
     lists:foreach(fun (Spec) ->
                           ok = bind_or_connect(Sock, Spec)
                   end, Specs).
 
-bind_or_connect(Sock, {bind, Address}) ->
-    zmq:bind(Sock, Address);
-bind_or_connect(Sock, {connect, Address}) ->
-    zmq:connect(Sock, Address).
+bind_or_connect({_, FD}, {bind, Address}) ->
+    zmq:bind(FD, Address);
+bind_or_connect({_, FD}, {connect, Address}) ->
+    zmq:connect(FD, Address).
 
-close_socket(Sock) ->
-    zmq:close(Sock).
+close_socket({_, FD}) ->
+    zmq:close(FD).
