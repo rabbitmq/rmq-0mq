@@ -9,11 +9,10 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {req_queue, % used as routing key for requests
-                req_exchange, % exchange to which to send requests
-                rep_exchange, % (probably default) exchange to send replies
-                rep_queue % (private) queue from which to collect replies
-               }).
+-record(params, {req_queue, % used as routing key for requests
+                 req_exchange, % exchange to which to send requests
+                 rep_queue % (private) queue from which to collect replies
+                }).
 
 %% -- Callbacks --
 
@@ -27,7 +26,7 @@ create_socket() ->
     {ok, In} = zmq:socket(xrep, [{active, false}]),
     In.
 
-init(Options, Connection, ConsumeChannel) ->
+init(Options, _Connection, ConsumeChannel) ->
     %% We MUST have a request queue name to use as a routing key;
     %% there's no point in constructing a private queue, because
     %% no-one will be listening to it.
@@ -42,31 +41,30 @@ init(Options, Connection, ConsumeChannel) ->
     RepExchange = <<"">>,
     {ok, RepQueueName} = r0mq_util:create_bind_private_queue(
                            RepExchange, queue, ConsumeChannel),
-    {ok, #state{ req_queue = ReqQueueName,
-                 req_exchange = ReqExchange,
-                 rep_exchange = RepExchange,
-                 rep_queue = RepQueueName}}.
+    {ok, #params{ req_queue = ReqQueueName,
+                  req_exchange = ReqExchange,
+                  rep_queue = RepQueueName}}.
 
-start_listening(Channel, Sock, State = #state{rep_queue = RepQueue}) ->
+start_listening(Channel, Sock, Params = #params{rep_queue = RepQueue}) ->
     ConsumeRep = #'basic.consume'{ queue = RepQueue,
-                                   no_ack = true,
+                                   no_ack = false,
                                    exclusive = true },
     _Pid = spawn_link(fun() ->
-                              #'basic.consume_ok'{consumer_tag = RepTag } =
+                              #'basic.consume_ok'{} =
                                   amqp_channel:subscribe(Channel, ConsumeRep, self()),
                               receive
                                   #'basic.consume_ok'{} -> ok
                               end,
-                              response_loop(Channel, Sock, State)
+                              response_loop(Channel, Sock, Params)
                       end),
     _Pid2 = spawn_link(fun() ->
-                               request_loop(Channel, Sock, State, [], path)
+                               request_loop(Channel, Sock, Params, [], path)
                        end),
-    {ok, State}.
+    {ok, Params}.
 
-response_loop(Channel, Sock, State) ->
+response_loop(Channel, Sock, Params) ->
     receive
-        {#'basic.deliver'{},
+        {#'basic.deliver'{ delivery_tag = Tag },
          #amqp_msg{ payload = Payload,
                     props = Props }} ->
             #'P_basic'{correlation_id = CorrelationId} = Props,
@@ -76,12 +74,14 @@ response_loop(Channel, Sock, State) ->
                           end, Path),
             zmq:send(Sock, <<>>, [sndmore]),
             zmq:send(Sock, Payload),
-            response_loop(Channel, Sock, State)
-end.
+            amqp_channel:cast(Channel, #'basic.ack'{ delivery_tag = Tag,
+                                                     multiple = false })
+    end,
+    response_loop(Channel, Sock, Params).
 
-request_loop(Channel, Sock, State = #state{ req_queue = Queue,
-                                            rep_queue = ReplyQueue,
-                                            req_exchange = Exchange },
+request_loop(Channel, Sock, Params = #params{ req_queue = Queue,
+                                              rep_queue = ReplyQueue,
+                                              req_exchange = Exchange },
              Path, payload) ->
     {ok, Data} = zmq:recv(Sock),
     CorrelationId = encode_path(Path),
@@ -92,14 +92,14 @@ request_loop(Channel, Sock, State = #state{ req_queue = Queue,
     Pub = #'basic.publish'{ exchange = Exchange,
                             routing_key = Queue },
     amqp_channel:cast(Channel, Pub, Msg),
-    request_loop(Channel, Sock, State, [], path);
-request_loop(Channel, Sock, State, Path, path) ->
+    request_loop(Channel, Sock, Params, [], path);
+request_loop(Channel, Sock, Params, Path, path) ->
     {ok, Msg} = zmq:recv(Sock),
     case Msg of
         <<>> ->
-            request_loop(Channel, Sock, State, Path, payload);
+            request_loop(Channel, Sock, Params, Path, payload);
         PathElem ->
-            request_loop(Channel, Sock, State, [ PathElem | Path ], path)
+            request_loop(Channel, Sock, Params, [ PathElem | Path ], path)
     end.
 
 %% FIXME only deal with one for the minute

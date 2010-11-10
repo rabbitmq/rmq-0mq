@@ -9,7 +9,7 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {queue}).
+-record(params, {queue}).
 
 %% -- Callbacks --
 
@@ -24,23 +24,23 @@ init(Options, Connection, ConsumeChannel) ->
         QName when is_binary(QName) ->
             r0mq_util:ensure_shared_queue(
               QName, <<"">>, queue, Connection),
-            {ok, #state{queue = QName}}
+            {ok, #params{queue = QName}}
     end.
 
-start_listening(Channel, Sock, State) ->
+start_listening(Channel, Sock, Params) ->
     _Pid = spawn_link(fun () ->
-                              loop(Channel, Sock, State)
+                              loop(Channel, Sock, Params)
                       end),
-    {ok, State}.
+    {ok, Params}.
 
-loop(Channel, Sock, State) ->
+loop(Channel, Sock, Params) ->
     {ok, Msg} = zmq:recv(Sock),
-    {ok, State1} = publish_message(Msg, Channel, State),
-    loop(Channel, Sock, State1).
+    ok = publish_message(Msg, Channel, Params),
+    loop(Channel, Sock, Params).
 
-publish_message(Data, Channel, State = #state{queue = Queue }) ->
+publish_message(Data, Channel, #params{queue = Queue}) ->
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = <<"">>,
                             routing_key = Queue },
     amqp_channel:cast(Channel, Pub, Msg),
-    {ok, State}.
+    ok.

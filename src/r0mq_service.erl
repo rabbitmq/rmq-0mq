@@ -10,7 +10,7 @@
 -record(state, {connection,
                 channel,
                 service_module,
-                service_state,
+                service_params,
                 sock}).
 
 %% interface
@@ -42,7 +42,7 @@ start_link(ServiceArgs) ->
 init([{Module, SockSpec, Options}]) ->
     {ok, Connection} = amqp_connection:start(direct),
     {ok, Channel} = amqp_connection:open_channel(Connection),
-    {ok, ServiceState} = Module:init(Options, Connection, Channel),
+    {ok, ServiceParams} = Module:init(Options, Connection, Channel),
     Sock = create_socket(Module, create_socket, SockSpec),
     gen_server:cast(self(), start_listening),
     rabbit_log:info(
@@ -54,42 +54,24 @@ init([{Module, SockSpec, Options}]) ->
     {ok, #state{ connection = Connection,
                  channel = Channel,
                  service_module = Module,
-                 service_state = ServiceState,
+                 service_params = ServiceParams,
                  sock = Sock}}.
 
 %% -- Callbacks --
 
+%% FIXME throw an error for unexpected call and info
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-handle_cast(start_listening, State = #state { service_state = ServiceState,
+handle_cast(start_listening, State = #state { service_params = Params,
                                               service_module = Module,
                                               sock = Sock,
                                               channel = Channel }) ->
-    {ok, ServiceState1} = Module:start_listening(Channel, Sock, ServiceState),
-    {noreply, State#state { service_state = ServiceState1 } }.
+    {ok, Params1} = Module:start_listening(Channel, Sock, Params),
+    {noreply, State#state { service_params = Params1 } }.
 
-%% This will get sent when a service subscribes us to a queue.
-handle_info(#'basic.consume_ok'{}, State) ->
-    io:format("(consume ok recvd)~n", []),
-    {noreply, State};
-handle_info({zmq, FD, Data}, State = #state{
-                               service_module = Module,
-                               service_state = ServiceState,
-                               sock = FD,
-                               channel = Channel}) ->
-   io:format("ZeroMQ message recvd: ~p~n", [Data]),
-    {ok, ServiceState1} = Module:zmq_message(Data, Channel, ServiceState),
-    {noreply, State#state {service_state = ServiceState1}};
-
-handle_info({Env = #'basic.deliver'{}, Msg},
-            State = #state{ service_module = Module,
-                            service_state = ServiceState,
-                            sock = Sock,
-                            channel = Channel}) ->
-    io:format("AMQP message recvd: ~p~n", [Msg]),
-    {ok, ServiceState1} = Module:amqp_message(Env, Msg, Sock, Channel, ServiceState),
-    {noreply, State#state{service_state = ServiceState1}}.
+handle_info(_Msg, State) ->
+    {noreply, State}.
 
 %% TODO termination protocol for service module
 terminate(_Reason,

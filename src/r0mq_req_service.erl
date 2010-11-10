@@ -9,9 +9,9 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {req_exchange, % (probably default) exchange from which we get requests
-                req_queue, % (probably shared) queue from which we retrieve requests
-                rep_exchange % (probably default) exchange to send replies
+-record(params, {req_exchange, % (probably default) exchange through which we get requests
+                 req_queue, % (probably shared) queue from which we retrieve requests
+                 rep_exchange % (probably default) exchange to send replies
                }).
 
 %% -- Callbacks --
@@ -39,13 +39,13 @@ init(Options, Connection, _ConsumeChannel) ->
     ReqExchange = <<"">>,
     RepExchange = <<"">>,
     r0mq_util:ensure_shared_queue(ReqQueueName, ReqExchange, queue, Connection),
-    {ok, #state{ req_exchange = ReqExchange,
-                 rep_exchange = RepExchange,
-                 req_queue = ReqQueueName}}.
+    {ok, #params{ req_exchange = ReqExchange,
+                  rep_exchange = RepExchange,
+                  req_queue = ReqQueueName}}.
 
-start_listening(Channel, Sock, State = #state{req_queue = ReqQueue}) ->
+start_listening(Channel, Sock, Params = #params{req_queue = ReqQueue}) ->
     ConsumeReq = #'basic.consume'{ queue = ReqQueue,
-                                   no_ack = true,
+                                   no_ack = false,
                                    exclusive = false },
     %% We are listening for two things:
     %% Firstly, deliveries from our request queue, which are forwarded to
@@ -56,16 +56,16 @@ start_listening(Channel, Sock, State = #state{req_queue = ReqQueue}) ->
                               receive
                                   #'basic.consume_ok'{} -> ok
                               end,
-                              request_loop(Channel, Sock, State)
+                              request_loop(Channel, Sock, Params)
                       end),
     _Pid2 = spawn_link(fun() ->
-                               response_loop(Channel, Sock, State, [], path)
+                               response_loop(Channel, Sock, Params, [], path)
                        end),
-    {ok, State}.
+    {ok, Params}.
 
-request_loop(Channel, Sock, State) ->
+request_loop(Channel, Sock, Params) ->
     receive
-        {#'basic.deliver'{},
+        {#'basic.deliver'{ delivery_tag = Tag },
          #amqp_msg{ payload = Payload, props = Props }} ->
             #'P_basic'{correlation_id = CorrelationId,
                        reply_to = ReplyTo } = Props,
@@ -76,10 +76,12 @@ request_loop(Channel, Sock, State) ->
             zmq:send(Sock, ReplyTo, [sndmore]),
             zmq:send(Sock, <<>>, [sndmore]),
             zmq:send(Sock, Payload),
-            request_loop(Channel, Sock, State)
-    end.
+            amqp_channel:cast(Channel, #'basic.ack'{ delivery_tag = Tag,
+                                                     multiple = false })
+    end,
+    request_loop(Channel, Sock, Params).
 
-response_loop(Channel, Sock, State = #state{rep_exchange = Exchange},
+response_loop(Channel, Sock, Params = #params{rep_exchange = Exchange},
               Path, payload) ->
     {ok, Data} = zmq:recv(Sock),
     [ ReplyTo | Rest ] = Path,
@@ -94,12 +96,12 @@ response_loop(Channel, Sock, State = #state{rep_exchange = Exchange},
     Pub = #'basic.publish'{ exchange = Exchange,
                             routing_key = ReplyTo },
     amqp_channel:cast(Channel, Pub, Msg),
-    response_loop(Channel, Sock, State, [], path);
-response_loop(Channel, Sock, State, Path, path) ->
+    response_loop(Channel, Sock, Params, [], path);
+response_loop(Channel, Sock, Params, Path, path) ->
     {ok, Msg} = zmq:recv(Sock),
     case Msg of
         <<>> ->
-            response_loop(Channel, Sock, State, Path, payload);
+            response_loop(Channel, Sock, Params, Path, payload);
         PathElem ->
-            response_loop(Channel, Sock, State, [ PathElem | Path ], path)
+            response_loop(Channel, Sock, Params, [ PathElem | Path ], path)
     end.

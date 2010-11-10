@@ -10,7 +10,7 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {queue}).
+-record(params, {queue}).
 
 %% -- Callbacks --
 
@@ -29,10 +29,10 @@ init(Options, Connection, ConsumeChannel) ->
         {ok, Exchange} ->
             {ok, Queue} = r0mq_util:create_bind_private_queue(
                             Exchange, <<"">>, ConsumeChannel),
-            {ok, #state{queue = Queue}}
+            {ok, #params{queue = Queue}}
     end.
 
-start_listening(Channel, Sock, State = #state{queue = Queue}) ->
+start_listening(Channel, Sock, Params = #params{queue = Queue}) ->
     %% We use prefetch here for flow control
     amqp_channel:call(Channel, #'basic.qos'{prefetch_count = 100}),
     Consume = #'basic.consume'{ queue = Queue,
@@ -44,20 +44,17 @@ start_listening(Channel, Sock, State = #state{queue = Queue}) ->
                      receive
                          #'basic.consume_ok'{} -> ok
                      end,
-                     loop(Channel, Sock, State)
+                     loop(Channel, Sock, Params)
              end),
-    {ok, State}.
+    {ok, Params}.
 
-loop(Channel, Sock, State) ->
+loop(Channel, Sock, Params) ->
     receive
-        {#'basic.deliver'{delivery_tag = Tag}, Msg} ->
-            {ok, State1} = send_message(Msg, Sock, State),
+        {#'basic.deliver'{delivery_tag = Tag},
+         #amqp_msg{ payload = Payload}} ->
+            ok = zmq:send(Sock, Payload),
             amqp_channel:cast(Channel,
-                              #'basic.ack'{delivery_tag = Tag, multiple = false}),
-            loop(Channel, Sock, State1)
-    end.
-
-send_message(#amqp_msg{payload = Payload}, Sock, State) ->
-    case zmq:send(Sock, Payload) of
-        ok -> {ok, State}
-    end.
+                              #'basic.ack'{delivery_tag = Tag,
+                                           multiple = false})
+    end,
+    loop(Channel, Sock, Params).

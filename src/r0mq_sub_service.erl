@@ -9,7 +9,7 @@
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
--record(state, {exchange}).
+-record(params, {exchange}).
 
 %% -- Callbacks --
 
@@ -26,22 +26,22 @@ init(Options, Connection, ConsumeChannel) ->
         {error, _, _Spec} ->
             throw({cannot_declare_exchange, Exchange});
         {ok, Exchange} ->
-            {ok, #state{exchange = Exchange}}
+            {ok, #params{exchange = Exchange}}
     end.
 
-start_listening(Channel, Sock, State) ->
+start_listening(Channel, Sock, Params) ->
     _Pid = spawn_link(fun () ->
-                              loop(Channel, Sock, State)
+                              loop(Channel, Sock, Params)
                       end),
-    {ok, State}.
+    {ok, Params}.
 
-loop(Channel, Sock, State) ->
+loop(Channel, Sock, Params) ->
     {ok, Msg} = zmq:recv(Sock),
-    {ok, State1} = publish_message(Msg, Channel, State),
-    loop(Channel, Sock, State1).
+    ok = publish_message(Msg, Channel, Params),
+    loop(Channel, Sock, Params).
 
-publish_message(Data, Channel, State = #state{exchange = Exchange }) ->
+publish_message(Data, Channel, Params = #params{exchange = Exchange }) ->
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = Exchange },
     amqp_channel:cast(Channel, Pub, Msg),
-    {ok, State}.
+    ok.
