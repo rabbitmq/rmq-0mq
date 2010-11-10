@@ -5,17 +5,13 @@
 %% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
 %% Callbacks
--export([init/3, create_socket/0,
-        start_listening/2, zmq_message/3, amqp_message/5]).
+-export([init/3, create_socket/0, start_listening/3]).
 
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 -record(state, {req_exchange, % (probably default) exchange from which we get requests
                 req_queue, % (probably shared) queue from which we retrieve requests
-                rep_exchange, % (probably default) exchange to send replies
-                outgoing_state = path, % state of multipart reply message
-                outgoing_path = [],
-                request_tag = none % consumer tag for request queue
+                rep_exchange % (probably default) exchange to send replies
                }).
 
 %% -- Callbacks --
@@ -27,7 +23,7 @@
 %% sending, we just do it all in one go.
 
 create_socket() ->
-    {ok, Out} = zmq:socket(xreq, [{active, true}]),
+    {ok, Out} = zmq:socket(xreq, [{active, false}]),
     Out.
 
 init(Options, Connection, _ConsumeChannel) ->
@@ -47,22 +43,45 @@ init(Options, Connection, _ConsumeChannel) ->
                  rep_exchange = RepExchange,
                  req_queue = ReqQueueName}}.
 
-start_listening(Channel, State = #state{req_queue = ReqQueue}) ->
+start_listening(Channel, Sock, State = #state{req_queue = ReqQueue}) ->
     ConsumeReq = #'basic.consume'{ queue = ReqQueue,
                                    no_ack = true,
                                    exclusive = false },
-    #'basic.consume_ok'{consumer_tag = ReqTag } =
-        amqp_channel:subscribe(Channel, ConsumeReq, self()),
-    {ok, State#state{ request_tag = ReqTag }}.
+    %% We are listening for two things:
+    %% Firstly, deliveries from our request queue, which are forwarded to
+    %% the outgoing port; second is incoming responses, which are forwarded
+    %% to the (decoded) reply-to queue.
+    _Pid = spawn_link(fun() ->
+                              amqp_channel:subscribe(Channel, ConsumeReq, self()),
+                              receive
+                                  #'basic.consume_ok'{} -> ok
+                              end,
+                              request_loop(Channel, Sock, State)
+                      end),
+    _Pid2 = spawn_link(fun() ->
+                               response_loop(Channel, Sock, State, [], path)
+                       end),
+    {ok, State}.
 
-zmq_message(<<>>, _Channel, State = #state{outgoing_state = path}) ->
-    {ok, State#state{outgoing_state = payload}};
-zmq_message(Data, _Channel, State = #state{outgoing_state = path,
-                                           outgoing_path = Path}) ->
-    {ok, State#state{outgoing_path = [Data | Path]}};
-zmq_message(Data, Channel, State = #state{outgoing_state = payload,
-                                          outgoing_path = Path,
-                                          req_exchange = Exchange}) ->
+request_loop(Channel, Sock, State) ->
+    receive
+        {#'basic.deliver'{},
+         #amqp_msg{ payload = Payload, props = Props }} ->
+            #'P_basic'{correlation_id = CorrelationId,
+                       reply_to = ReplyTo } = Props,
+            case CorrelationId of
+                undefined -> no_send;
+                Id -> zmq:send(Sock, Id, [sndmore])
+            end,
+            zmq:send(Sock, ReplyTo, [sndmore]),
+            zmq:send(Sock, <<>>, [sndmore]),
+            zmq:send(Sock, Payload),
+            request_loop(Channel, Sock, State)
+    end.
+
+response_loop(Channel, Sock, State = #state{rep_exchange = Exchange},
+              Path, payload) ->
+    {ok, Data} = zmq:recv(Sock),
     [ ReplyTo | Rest ] = Path,
     CorrelationId = case Rest of
                         []   -> undefined;
@@ -75,25 +94,12 @@ zmq_message(Data, Channel, State = #state{outgoing_state = payload,
     Pub = #'basic.publish'{ exchange = Exchange,
                             routing_key = ReplyTo },
     amqp_channel:cast(Channel, Pub, Msg),
-    {ok, State#state{outgoing_state = path, outgoing_path = []}}.
-
-amqp_message(#'basic.deliver'{consumer_tag = Tag},
-             #amqp_msg{ payload = Payload, props = Props },
-             Sock,
-             _Channel,
-             State = #state{request_tag = ReqTag}) ->
-    %% A request, either from an AMQP client, or us
-    #'P_basic'{correlation_id = CorrelationId,
-               reply_to = ReplyTo} = Props,
-    io:format("Request received ~p (corr id ~p)~n", [Payload, CorrelationId]),
-    case CorrelationId of
-        undefined -> no_send;
-        Id        -> zmq:send(Sock, Id, [sndmore])
-    end,
-    io:format("Sending: ~p~n", [ReplyTo]),
-    zmq:send(Sock, ReplyTo, [sndmore]),
-    io:format("Sending: <<>>~n", []),
-    zmq:send(Sock, <<>>, [sndmore]),
-    io:format("Sending: ~p~n", [Payload]),
-    zmq:send(Sock, Payload),
-    {ok, State}.
+    response_loop(Channel, Sock, State, [], path);
+response_loop(Channel, Sock, State, Path, path) ->
+    {ok, Msg} = zmq:recv(Sock),
+    case Msg of
+        <<>> ->
+            response_loop(Channel, Sock, State, Path, payload);
+        PathElem ->
+            response_loop(Channel, Sock, State, [ PathElem | Path ], path)
+    end.
