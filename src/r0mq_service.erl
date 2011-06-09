@@ -40,7 +40,7 @@ start_link(ServiceArgs) ->
 %% -- Callbacks --
 
 init([{Module, SockSpec, Options}]) ->
-    {ok, Connection} = amqp_connection:start(direct),
+    {ok, Connection} = amqp_connection:start(#amqp_params_direct{}),
     {ok, Channel} = amqp_connection:open_channel(Connection),
     {ok, ServiceParams} = Module:init(Options, Connection, Channel),
     Sock = create_socket(Module, create_socket, SockSpec),
