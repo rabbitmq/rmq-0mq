@@ -1,5 +1,7 @@
 -module(r0mq).
 
+-behaviour(application).
+ 
 %% Just the application; responsible for invoking the supervisor, on
 %% start.
 

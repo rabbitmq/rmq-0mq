@@ -87,7 +87,7 @@ full_address(Address) when is_list(Address) ->
                                     Full ->
                                         {ok, [Full, Acc]}
                                 end
-                        end, Address)
+                        end, void, Address)
     end;
 full_address(Address) ->
     full_address([Address]).
