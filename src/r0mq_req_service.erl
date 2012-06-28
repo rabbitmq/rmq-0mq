@@ -73,7 +73,12 @@ request_loop(Channel, Sock, Params) ->
                 undefined -> no_send;
                 Id -> zmq:send(Sock, Id, [sndmore])
             end,
-            zmq:send(Sock, ReplyTo, [sndmore]),
+	    % if there is no ReplyTo field in the amqp message don't sent it
+            if 
+	       ReplyTo =/= undefined ->
+                  zmq:send(Sock, ReplyTo, [sndmore]);
+	       true -> ok
+	    end,
             zmq:send(Sock, <<>>, [sndmore]),
             zmq:send(Sock, Payload),
             amqp_channel:cast(Channel, #'basic.ack'{ delivery_tag = Tag,
