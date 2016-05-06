@@ -11,7 +11,7 @@
 %% There's no server-supplied names for exchanges, so we make our own
 %% here.
 private_name() ->
-    rabbit_guid:guid().
+    rabbit_guid:gen().
 
 %% We want either the exchange name (a binary) or
 %% 'missing'.

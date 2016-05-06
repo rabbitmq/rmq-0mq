@@ -1,0 +1,8 @@
+{application, r0mq,
+   [{description, "RabbitMQ-ZeroMQ bridge"},
+   {vsn, "0.01"},
+   {modules, []},
+   {registered, []},
+   {mod, {r0mq, []}},
+   {env, []},
+   {applications, [kernel, stdlib, rabbit, amqp_client, zmq]}]}.
