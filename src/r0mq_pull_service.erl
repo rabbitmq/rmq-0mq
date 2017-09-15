@@ -17,7 +17,7 @@ create_socket() ->
     {ok, Out} = zmq:socket(upstream, [{active, false}]),
     Out.
 
-init(Options, Connection, ConsumeChannel) ->
+init(Options, Connection, _ConsumeChannel) ->
     case r0mq_util:get_option(name, Options) of
         missing ->
             throw({?MODULE, no_queue_given});

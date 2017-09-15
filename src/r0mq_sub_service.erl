@@ -17,7 +17,7 @@ create_socket() ->
     {ok, In} = zmq:socket(sub, [{active, false}, {subscribe, <<"">>}]),
     In.
 
-init(Options, Connection, ConsumeChannel) ->
+init(Options, Connection, _ConsumeChannel) ->
     Exchange = case r0mq_util:get_option(name, Options) of
                    missing -> throw({?MODULE, no_name_supplied, Options});
                    Name    -> Name
@@ -40,7 +40,7 @@ loop(Channel, Sock, Params) ->
     ok = publish_message(Msg, Channel, Params),
     loop(Channel, Sock, Params).
 
-publish_message(Data, Channel, Params = #params{exchange = Exchange }) ->
+publish_message(Data, Channel, #params{exchange = Exchange }) ->
     Msg = #amqp_msg{payload = Data},
     Pub = #'basic.publish'{ exchange = Exchange },
     amqp_channel:cast(Channel, Pub, Msg),

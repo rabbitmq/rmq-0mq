@@ -11,7 +11,7 @@
 %% -- Interface --
 
 start_link(ServerDefs) ->
-    {ok, Pid} = zmq:start_link(), % FIXME put in hierarchy
+    {ok, _} = zmq:start_link(), % FIXME put in hierarchy
     case child_specs(ServerDefs) of
         {ok, ChildSpecs} ->
             supervisor:start_link(?MODULE, [ChildSpecs]);
@@ -30,8 +30,8 @@ init([ChildSpecs]) ->
 child_specs([]) ->
     {ok, []};
 child_specs(Services) ->
-    case lists:partition(fun ({ok, Spec}) -> true;
-                             ({error, Error}) -> false
+    case lists:partition(fun ({ok, _Spec}) -> true;
+                             ({error, _Error}) -> false
                          end,
                          lists:map(fun child_spec/1, Services)) of
         {OKs, []} ->

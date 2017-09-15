@@ -1,0 +1,27 @@
+.sw?
+.*.sw?
+*.beam
+*.pem
+.erlang.mk/
+/cover/
+/debug/
+/deps/
+/doc/
+/ebin/
+/logs/
+/plugins/
+/xrefr
+
+rmq_0mq.d
+.rmq_0mq.plt
+
+# Common Test
+ct_run*
+all_runs.html
+index.html
+jquery*.js
+ct_default.css
+ct_log_cache
+variables-ct*
+
+*.coverdata
