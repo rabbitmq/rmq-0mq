@@ -2,7 +2,7 @@
 
 %% A sub service.
 %%
-%% See http://wiki.github.com/rabbitmq/rmq-0mq/pubsub
+%% See https://wiki.github.com/rabbitmq/rmq-0mq/pubsub
 
 %% Callbacks
 -export([init/3, create_socket/0, start_listening/3]).

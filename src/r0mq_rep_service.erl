@@ -2,7 +2,7 @@
 
 %% A reply service.
 %%
-%% See http://wiki.github.com/rabbitmq/rmq-0mq/reqrep
+%% See https://wiki.github.com/rabbitmq/rmq-0mq/reqrep
 
 %% Callbacks
 -export([init/3, create_socket/0, start_listening/3]).
