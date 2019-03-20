@@ -2,7 +2,7 @@
 
 %% A pipeline pull (upstream) service.
 %%
-%% See http://wiki.github.com/rabbitmq/rmq-0mq/pipeline
+%% See https://wiki.github.com/rabbitmq/rmq-0mq/pipeline
 
 %% Callbacks
 -export([init/3, create_socket/0, start_listening/3]).
